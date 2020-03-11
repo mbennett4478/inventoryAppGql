@@ -1,0 +1,50 @@
+type Inventory {
+  id: Int!
+  name: String!
+  createdAt: Time!
+  updatedAt: Time!
+  items: [InventoryItem!]!
+}
+
+type InventoryItem {
+  id: Int!
+  inventoryId: Int!
+  quantity: Int!
+  item: Item!
+}
+
+type Item {
+  id: Int!
+  createdAt: Time!
+  updatedAt: Time!
+  name: String!
+}
+
+scalar Time
+
+input NewItem {
+  name: String!
+}
+
+input NewInventoryItem {
+  quantity: Int!
+  inventoryId: Int!
+  itemId: Int!
+}
+
+input NewInventory {
+  name: String!
+}
+
+type Query {
+  inventories: [Inventory!]!
+  item(id: Int): Item!
+}
+
+type Mutation {
+  createInventory(input: NewInventory): Inventory!
+  createItem(input: NewItem): Item
+  addInventoryItem(input: NewInventoryItem): InventoryItem!
+  removeInventoryItem(id: Int): InventoryItem!
+  deleteInventory(id: Int): Inventory!
+}
