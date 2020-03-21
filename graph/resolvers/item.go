@@ -4,14 +4,13 @@ import (
 	"context"
 	"github.com/jinzhu/gorm"
 	"inventoryGql/graph/model"
-	"inventoryGql/graph/models"
 	"log"
 
 	//"log"
 )
 
-func (m *mutationResolver) CreateItem(ctx context.Context, input *model.NewItem) (*models.Item, error) {
-	item := models.Item{
+func (m *mutationResolver) CreateItem(ctx context.Context, input *model.NewItem) (*model.Item, error) {
+	item := model.Item{
 		Name: input.Name,
 	}
 
@@ -25,11 +24,11 @@ func (m *mutationResolver) CreateItem(ctx context.Context, input *model.NewItem)
 	return &item, err
 }
 
-func (q *queryResolver) Item(ctx context.Context, id *int) (*models.Item, error) {
-	var item = models.Item{}
-	var items []models.Item
+func (q *queryResolver) Item(ctx context.Context, id *string) (*model.Item, error) {
+	var item = model.Item{}
+	var items []model.Item
 	q.Db.Find(&items)
-	err := q.Db.Where("id = ?", *id).Find(&item).Error
+	err := q.Db.Where("id = ?", id).Find(&item).Error
 	if err != nil {
 		log.Println(err)
 	}

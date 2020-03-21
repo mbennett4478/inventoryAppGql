@@ -1,9 +1,11 @@
 package models
 
+import "github.com/gofrs/uuid"
+
 type InventoryItem struct {
-	ID          int    	`json:"id"`
-	InventoryID int    	`json:"inventoryId"`
-	Quantity    int    	`json:"quantity"`
-	Item        Item  	`json:"item"`
-	ItemID		int		`json:"-"`
+	BaseModelSoftDelete
+	InventoryID uuid.UUID	`json:"inventoryId"`
+	Quantity    int    		`json:"quantity"`
+	Item        Item  		`json:"item"`
+	ItemID		int			`json:"-"`
 }

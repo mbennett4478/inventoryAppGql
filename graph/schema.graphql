@@ -1,5 +1,12 @@
+type User {
+  id: String!
+  firstName: String!
+  lastName: String!
+  email: String!
+}
+
 type Inventory {
-  id: Int!
+  id: String!
   name: String!
   createdAt: Time!
   updatedAt: Time!
@@ -7,14 +14,14 @@ type Inventory {
 }
 
 type InventoryItem {
-  id: Int!
-  inventoryId: Int!
+  id: String!
+  inventoryId: String!
   quantity: Int!
   item: Item!
 }
 
 type Item {
-  id: Int!
+  id: String!
   createdAt: Time!
   updatedAt: Time!
   name: String!
@@ -28,8 +35,8 @@ input NewItem {
 
 input NewInventoryItem {
   quantity: Int!
-  inventoryId: Int!
-  itemId: Int!
+  inventoryId: String!
+  itemId: String!
 }
 
 input NewInventory {
@@ -38,13 +45,13 @@ input NewInventory {
 
 type Query {
   inventories: [Inventory!]!
-  item(id: Int): Item!
+  item(id: String): Item!
 }
 
 type Mutation {
   createInventory(input: NewInventory): Inventory!
-  createItem(input: NewItem): Item
+  createItem(input: NewItem): Item!
   addInventoryItem(input: NewInventoryItem): InventoryItem!
-  removeInventoryItem(id: Int): InventoryItem!
-  deleteInventory(id: Int): Inventory!
+  removeInventoryItem(id: String): String!
+  deleteInventory(id: String): Inventory!
 }
