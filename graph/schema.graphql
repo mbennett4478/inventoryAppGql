@@ -1,12 +1,12 @@
 type User {
-  id: String!
+  id: ID!
   firstName: String!
   lastName: String!
   email: String!
 }
 
 type Inventory {
-  id: String!
+  id: ID!
   name: String!
   createdAt: Time!
   updatedAt: Time!
@@ -14,14 +14,14 @@ type Inventory {
 }
 
 type InventoryItem {
-  id: String!
+  id: ID!
   inventoryId: String!
   quantity: Int!
   item: Item!
 }
 
 type Item {
-  id: String!
+  id: ID!
   createdAt: Time!
   updatedAt: Time!
   name: String!
