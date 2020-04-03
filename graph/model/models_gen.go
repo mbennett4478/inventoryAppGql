@@ -2,32 +2,6 @@
 
 package model
 
-import (
-	"time"
-)
-
-type Inventory struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	CreatedAt time.Time       `json:"createdAt"`
-	UpdatedAt time.Time       `json:"updatedAt"`
-	Items     []InventoryItem `json:"items"`
-}
-
-type InventoryItem struct {
-	ID          string `json:"id"`
-	InventoryID string `json:"inventoryId"`
-	Quantity    int    `json:"quantity"`
-	Item        *Item  `json:"item"`
-}
-
-type Item struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	Name      string    `json:"name"`
-}
-
 type NewInventory struct {
 	Name string `json:"name"`
 }
@@ -42,9 +16,10 @@ type NewItem struct {
 	Name string `json:"name"`
 }
 
-type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Email     string `json:"email"`
+type NewUser struct {
+	FirstName            string `json:"firstName"`
+	LastName             string `json:"lastName"`
+	Email                string `json:"email"`
+	Passord              string `json:"passord"`
+	ConfirmationPassword string `json:"confirmationPassword"`
 }

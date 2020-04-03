@@ -5,6 +5,7 @@ type User {
   email: String!
 }
 
+
 type Inventory {
   id: ID!
   name: String!
@@ -14,8 +15,7 @@ type Inventory {
 }
 
 type InventoryItem {
-  id: ID!
-  inventoryId: String!
+  inventoryId: ID!
   quantity: Int!
   item: Item!
 }
@@ -35,23 +35,32 @@ input NewItem {
 
 input NewInventoryItem {
   quantity: Int!
-  inventoryId: String!
-  itemId: String!
+  inventoryId: ID!
+  itemId: ID!
 }
 
 input NewInventory {
   name: String!
 }
 
+input NewUser {
+  firstName: String!
+  lastName: String!
+  email: String!
+  passord: String!
+  confirmationPassword: String!
+}
+
 type Query {
   inventories: [Inventory!]!
-  item(id: String): Item!
+  item(id: ID): Item!
 }
 
 type Mutation {
+  registerUser(input: NewUser): Boolean!
   createInventory(input: NewInventory): Inventory!
   createItem(input: NewItem): Item!
   addInventoryItem(input: NewInventoryItem): InventoryItem!
-  removeInventoryItem(id: String): String!
-  deleteInventory(id: String): Inventory!
+  removeInventoryItem(id: ID): String!
+  deleteInventory(id: ID): Inventory!
 }

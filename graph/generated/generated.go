@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"inventoryGql/graph/model"
+	"inventoryGql/graph/models"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -53,7 +54,6 @@ type ComplexityRoot struct {
 	}
 
 	InventoryItem struct {
-		ID          func(childComplexity int) int
 		InventoryID func(childComplexity int) int
 		Item        func(childComplexity int) int
 		Quantity    func(childComplexity int) int
@@ -71,6 +71,7 @@ type ComplexityRoot struct {
 		CreateInventory     func(childComplexity int, input *model.NewInventory) int
 		CreateItem          func(childComplexity int, input *model.NewItem) int
 		DeleteInventory     func(childComplexity int, id *string) int
+		RegisterUser        func(childComplexity int, input *model.NewUser) int
 		RemoveInventoryItem func(childComplexity int, id *string) int
 	}
 
@@ -88,15 +89,16 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	CreateInventory(ctx context.Context, input *model.NewInventory) (*model.Inventory, error)
-	CreateItem(ctx context.Context, input *model.NewItem) (*model.Item, error)
-	AddInventoryItem(ctx context.Context, input *model.NewInventoryItem) (*model.InventoryItem, error)
+	RegisterUser(ctx context.Context, input *model.NewUser) (bool, error)
+	CreateInventory(ctx context.Context, input *model.NewInventory) (*models.Inventory, error)
+	CreateItem(ctx context.Context, input *model.NewItem) (*models.Item, error)
+	AddInventoryItem(ctx context.Context, input *model.NewInventoryItem) (*models.InventoryItem, error)
 	RemoveInventoryItem(ctx context.Context, id *string) (string, error)
-	DeleteInventory(ctx context.Context, id *string) (*model.Inventory, error)
+	DeleteInventory(ctx context.Context, id *string) (*models.Inventory, error)
 }
 type QueryResolver interface {
-	Inventories(ctx context.Context) ([]model.Inventory, error)
-	Item(ctx context.Context, id *string) (*model.Item, error)
+	Inventories(ctx context.Context) ([]models.Inventory, error)
+	Item(ctx context.Context, id *string) (*models.Item, error)
 }
 
 type executableSchema struct {
@@ -148,13 +150,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Inventory.UpdatedAt(childComplexity), true
-
-	case "InventoryItem.id":
-		if e.complexity.InventoryItem.ID == nil {
-			break
-		}
-
-		return e.complexity.InventoryItem.ID(childComplexity), true
 
 	case "InventoryItem.inventoryId":
 		if e.complexity.InventoryItem.InventoryID == nil {
@@ -252,6 +247,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteInventory(childComplexity, args["id"].(*string)), true
+
+	case "Mutation.registerUser":
+		if e.complexity.Mutation.RegisterUser == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerUser_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.RegisterUser(childComplexity, args["input"].(*model.NewUser)), true
 
 	case "Mutation.removeInventoryItem":
 		if e.complexity.Mutation.RemoveInventoryItem == nil {
@@ -383,6 +390,7 @@ var sources = []*ast.Source{
   email: String!
 }
 
+
 type Inventory {
   id: ID!
   name: String!
@@ -392,8 +400,7 @@ type Inventory {
 }
 
 type InventoryItem {
-  id: ID!
-  inventoryId: String!
+  inventoryId: ID!
   quantity: Int!
   item: Item!
 }
@@ -413,25 +420,34 @@ input NewItem {
 
 input NewInventoryItem {
   quantity: Int!
-  inventoryId: String!
-  itemId: String!
+  inventoryId: ID!
+  itemId: ID!
 }
 
 input NewInventory {
   name: String!
 }
 
+input NewUser {
+  firstName: String!
+  lastName: String!
+  email: String!
+  passord: String!
+  confirmationPassword: String!
+}
+
 type Query {
   inventories: [Inventory!]!
-  item(id: String): Item!
+  item(id: ID): Item!
 }
 
 type Mutation {
+  registerUser(input: NewUser): Boolean!
   createInventory(input: NewInventory): Inventory!
   createItem(input: NewItem): Item!
   addInventoryItem(input: NewInventoryItem): InventoryItem!
-  removeInventoryItem(id: String): String!
-  deleteInventory(id: String): Inventory!
+  removeInventoryItem(id: ID): String!
+  deleteInventory(id: ID): Inventory!
 }
 `, BuiltIn: false},
 }
@@ -488,7 +504,7 @@ func (ec *executionContext) field_Mutation_deleteInventory_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 *string
 	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		arg0, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -497,12 +513,26 @@ func (ec *executionContext) field_Mutation_deleteInventory_args(ctx context.Cont
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *model.NewUser
+	if tmp, ok := rawArgs["input"]; ok {
+		arg0, err = ec.unmarshalONewUser2ᚖinventoryGqlᚋgraphᚋmodelᚐNewUser(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_removeInventoryItem_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
 	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		arg0, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -530,7 +560,7 @@ func (ec *executionContext) field_Query_item_args(ctx context.Context, rawArgs m
 	args := map[string]interface{}{}
 	var arg0 *string
 	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		arg0, err = ec.unmarshalOID2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -575,7 +605,7 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _Inventory_id(ctx context.Context, field graphql.CollectedField, obj *model.Inventory) (ret graphql.Marshaler) {
+func (ec *executionContext) _Inventory_id(ctx context.Context, field graphql.CollectedField, obj *models.Inventory) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -609,7 +639,7 @@ func (ec *executionContext) _Inventory_id(ctx context.Context, field graphql.Col
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Inventory_name(ctx context.Context, field graphql.CollectedField, obj *model.Inventory) (ret graphql.Marshaler) {
+func (ec *executionContext) _Inventory_name(ctx context.Context, field graphql.CollectedField, obj *models.Inventory) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -643,7 +673,7 @@ func (ec *executionContext) _Inventory_name(ctx context.Context, field graphql.C
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Inventory_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Inventory) (ret graphql.Marshaler) {
+func (ec *executionContext) _Inventory_createdAt(ctx context.Context, field graphql.CollectedField, obj *models.Inventory) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -677,7 +707,7 @@ func (ec *executionContext) _Inventory_createdAt(ctx context.Context, field grap
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Inventory_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Inventory) (ret graphql.Marshaler) {
+func (ec *executionContext) _Inventory_updatedAt(ctx context.Context, field graphql.CollectedField, obj *models.Inventory) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -711,7 +741,7 @@ func (ec *executionContext) _Inventory_updatedAt(ctx context.Context, field grap
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Inventory_items(ctx context.Context, field graphql.CollectedField, obj *model.Inventory) (ret graphql.Marshaler) {
+func (ec *executionContext) _Inventory_items(ctx context.Context, field graphql.CollectedField, obj *models.Inventory) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -740,46 +770,12 @@ func (ec *executionContext) _Inventory_items(ctx context.Context, field graphql.
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]model.InventoryItem)
+	res := resTmp.([]models.InventoryItem)
 	fc.Result = res
-	return ec.marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmodelᚐInventoryItemᚄ(ctx, field.Selections, res)
+	return ec.marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmodelsᚐInventoryItemᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _InventoryItem_id(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "InventoryItem",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _InventoryItem_inventoryId(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
+func (ec *executionContext) _InventoryItem_inventoryId(ctx context.Context, field graphql.CollectedField, obj *models.InventoryItem) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -810,10 +806,10 @@ func (ec *executionContext) _InventoryItem_inventoryId(ctx context.Context, fiel
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _InventoryItem_quantity(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
+func (ec *executionContext) _InventoryItem_quantity(ctx context.Context, field graphql.CollectedField, obj *models.InventoryItem) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -847,7 +843,7 @@ func (ec *executionContext) _InventoryItem_quantity(ctx context.Context, field g
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _InventoryItem_item(ctx context.Context, field graphql.CollectedField, obj *model.InventoryItem) (ret graphql.Marshaler) {
+func (ec *executionContext) _InventoryItem_item(ctx context.Context, field graphql.CollectedField, obj *models.InventoryItem) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -876,12 +872,12 @@ func (ec *executionContext) _InventoryItem_item(ctx context.Context, field graph
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Item)
+	res := resTmp.(models.Item)
 	fc.Result = res
-	return ec.marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelᚐItem(ctx, field.Selections, res)
+	return ec.marshalNItem2inventoryGqlᚋgraphᚋmodelsᚐItem(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Item_id(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_id(ctx context.Context, field graphql.CollectedField, obj *models.Item) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -915,7 +911,7 @@ func (ec *executionContext) _Item_id(ctx context.Context, field graphql.Collecte
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Item_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_createdAt(ctx context.Context, field graphql.CollectedField, obj *models.Item) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -949,7 +945,7 @@ func (ec *executionContext) _Item_createdAt(ctx context.Context, field graphql.C
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.CollectedField, obj *models.Item) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -983,7 +979,7 @@ func (ec *executionContext) _Item_updatedAt(ctx context.Context, field graphql.C
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Item_name(ctx context.Context, field graphql.CollectedField, obj *model.Item) (ret graphql.Marshaler) {
+func (ec *executionContext) _Item_name(ctx context.Context, field graphql.CollectedField, obj *models.Item) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1015,6 +1011,47 @@ func (ec *executionContext) _Item_name(ctx context.Context, field graphql.Collec
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_registerUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_registerUser_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().RegisterUser(rctx, args["input"].(*model.NewUser))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createInventory(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1053,9 +1090,9 @@ func (ec *executionContext) _Mutation_createInventory(ctx context.Context, field
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Inventory)
+	res := resTmp.(*models.Inventory)
 	fc.Result = res
-	return ec.marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelᚐInventory(ctx, field.Selections, res)
+	return ec.marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelsᚐInventory(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1094,9 +1131,9 @@ func (ec *executionContext) _Mutation_createItem(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Item)
+	res := resTmp.(*models.Item)
 	fc.Result = res
-	return ec.marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelᚐItem(ctx, field.Selections, res)
+	return ec.marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelsᚐItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_addInventoryItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1135,9 +1172,9 @@ func (ec *executionContext) _Mutation_addInventoryItem(ctx context.Context, fiel
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.InventoryItem)
+	res := resTmp.(*models.InventoryItem)
 	fc.Result = res
-	return ec.marshalNInventoryItem2ᚖinventoryGqlᚋgraphᚋmodelᚐInventoryItem(ctx, field.Selections, res)
+	return ec.marshalNInventoryItem2ᚖinventoryGqlᚋgraphᚋmodelsᚐInventoryItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_removeInventoryItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1217,9 +1254,9 @@ func (ec *executionContext) _Mutation_deleteInventory(ctx context.Context, field
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Inventory)
+	res := resTmp.(*models.Inventory)
 	fc.Result = res
-	return ec.marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelᚐInventory(ctx, field.Selections, res)
+	return ec.marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelsᚐInventory(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_inventories(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1251,9 +1288,9 @@ func (ec *executionContext) _Query_inventories(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]model.Inventory)
+	res := resTmp.([]models.Inventory)
 	fc.Result = res
-	return ec.marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelᚐInventoryᚄ(ctx, field.Selections, res)
+	return ec.marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelsᚐInventoryᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_item(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1292,9 +1329,9 @@ func (ec *executionContext) _Query_item(ctx context.Context, field graphql.Colle
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.Item)
+	res := resTmp.(*models.Item)
 	fc.Result = res
-	return ec.marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelᚐItem(ctx, field.Selections, res)
+	return ec.marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelsᚐItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1366,7 +1403,7 @@ func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.C
 	return ec.marshalO__Schema2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐSchema(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *models.User) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1400,7 +1437,7 @@ func (ec *executionContext) _User_id(ctx context.Context, field graphql.Collecte
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_firstName(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _User_firstName(ctx context.Context, field graphql.CollectedField, obj *models.User) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1434,7 +1471,7 @@ func (ec *executionContext) _User_firstName(ctx context.Context, field graphql.C
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_lastName(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _User_lastName(ctx context.Context, field graphql.CollectedField, obj *models.User) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1468,7 +1505,7 @@ func (ec *executionContext) _User_lastName(ctx context.Context, field graphql.Co
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _User_email(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+func (ec *executionContext) _User_email(ctx context.Context, field graphql.CollectedField, obj *models.User) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -2589,13 +2626,13 @@ func (ec *executionContext) unmarshalInputNewInventoryItem(ctx context.Context, 
 			}
 		case "inventoryId":
 			var err error
-			it.InventoryID, err = ec.unmarshalNString2string(ctx, v)
+			it.InventoryID, err = ec.unmarshalNID2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
 		case "itemId":
 			var err error
-			it.ItemID, err = ec.unmarshalNString2string(ctx, v)
+			it.ItemID, err = ec.unmarshalNID2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2623,6 +2660,48 @@ func (ec *executionContext) unmarshalInputNewItem(ctx context.Context, obj inter
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputNewUser(ctx context.Context, obj interface{}) (model.NewUser, error) {
+	var it model.NewUser
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "firstName":
+			var err error
+			it.FirstName, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "lastName":
+			var err error
+			it.LastName, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "email":
+			var err error
+			it.Email, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "passord":
+			var err error
+			it.Passord, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "confirmationPassword":
+			var err error
+			it.ConfirmationPassword, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -2633,7 +2712,7 @@ func (ec *executionContext) unmarshalInputNewItem(ctx context.Context, obj inter
 
 var inventoryImplementors = []string{"Inventory"}
 
-func (ec *executionContext) _Inventory(ctx context.Context, sel ast.SelectionSet, obj *model.Inventory) graphql.Marshaler {
+func (ec *executionContext) _Inventory(ctx context.Context, sel ast.SelectionSet, obj *models.Inventory) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, inventoryImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -2680,7 +2759,7 @@ func (ec *executionContext) _Inventory(ctx context.Context, sel ast.SelectionSet
 
 var inventoryItemImplementors = []string{"InventoryItem"}
 
-func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.SelectionSet, obj *model.InventoryItem) graphql.Marshaler {
+func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.SelectionSet, obj *models.InventoryItem) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, inventoryItemImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -2689,11 +2768,6 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("InventoryItem")
-		case "id":
-			out.Values[i] = ec._InventoryItem_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
 		case "inventoryId":
 			out.Values[i] = ec._InventoryItem_inventoryId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -2722,7 +2796,7 @@ func (ec *executionContext) _InventoryItem(ctx context.Context, sel ast.Selectio
 
 var itemImplementors = []string{"Item"}
 
-func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj *model.Item) graphql.Marshaler {
+func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj *models.Item) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, itemImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -2777,6 +2851,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
+		case "registerUser":
+			out.Values[i] = ec._Mutation_registerUser(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "createInventory":
 			out.Values[i] = ec._Mutation_createInventory(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -2873,7 +2952,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 
 var userImplementors = []string{"User"}
 
-func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
+func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *models.User) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -3200,11 +3279,11 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) marshalNInventory2inventoryGqlᚋgraphᚋmodelᚐInventory(ctx context.Context, sel ast.SelectionSet, v model.Inventory) graphql.Marshaler {
+func (ec *executionContext) marshalNInventory2inventoryGqlᚋgraphᚋmodelsᚐInventory(ctx context.Context, sel ast.SelectionSet, v models.Inventory) graphql.Marshaler {
 	return ec._Inventory(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelᚐInventoryᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Inventory) graphql.Marshaler {
+func (ec *executionContext) marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelsᚐInventoryᚄ(ctx context.Context, sel ast.SelectionSet, v []models.Inventory) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -3228,7 +3307,7 @@ func (ec *executionContext) marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelᚐ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNInventory2inventoryGqlᚋgraphᚋmodelᚐInventory(ctx, sel, v[i])
+			ret[i] = ec.marshalNInventory2inventoryGqlᚋgraphᚋmodelsᚐInventory(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -3241,7 +3320,7 @@ func (ec *executionContext) marshalNInventory2ᚕinventoryGqlᚋgraphᚋmodelᚐ
 	return ret
 }
 
-func (ec *executionContext) marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelᚐInventory(ctx context.Context, sel ast.SelectionSet, v *model.Inventory) graphql.Marshaler {
+func (ec *executionContext) marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelsᚐInventory(ctx context.Context, sel ast.SelectionSet, v *models.Inventory) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -3251,11 +3330,11 @@ func (ec *executionContext) marshalNInventory2ᚖinventoryGqlᚋgraphᚋmodelᚐ
 	return ec._Inventory(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNInventoryItem2inventoryGqlᚋgraphᚋmodelᚐInventoryItem(ctx context.Context, sel ast.SelectionSet, v model.InventoryItem) graphql.Marshaler {
+func (ec *executionContext) marshalNInventoryItem2inventoryGqlᚋgraphᚋmodelsᚐInventoryItem(ctx context.Context, sel ast.SelectionSet, v models.InventoryItem) graphql.Marshaler {
 	return ec._InventoryItem(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmodelᚐInventoryItemᚄ(ctx context.Context, sel ast.SelectionSet, v []model.InventoryItem) graphql.Marshaler {
+func (ec *executionContext) marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmodelsᚐInventoryItemᚄ(ctx context.Context, sel ast.SelectionSet, v []models.InventoryItem) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -3279,7 +3358,7 @@ func (ec *executionContext) marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmode
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNInventoryItem2inventoryGqlᚋgraphᚋmodelᚐInventoryItem(ctx, sel, v[i])
+			ret[i] = ec.marshalNInventoryItem2inventoryGqlᚋgraphᚋmodelsᚐInventoryItem(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -3292,7 +3371,7 @@ func (ec *executionContext) marshalNInventoryItem2ᚕinventoryGqlᚋgraphᚋmode
 	return ret
 }
 
-func (ec *executionContext) marshalNInventoryItem2ᚖinventoryGqlᚋgraphᚋmodelᚐInventoryItem(ctx context.Context, sel ast.SelectionSet, v *model.InventoryItem) graphql.Marshaler {
+func (ec *executionContext) marshalNInventoryItem2ᚖinventoryGqlᚋgraphᚋmodelsᚐInventoryItem(ctx context.Context, sel ast.SelectionSet, v *models.InventoryItem) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -3302,11 +3381,11 @@ func (ec *executionContext) marshalNInventoryItem2ᚖinventoryGqlᚋgraphᚋmode
 	return ec._InventoryItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNItem2inventoryGqlᚋgraphᚋmodelᚐItem(ctx context.Context, sel ast.SelectionSet, v model.Item) graphql.Marshaler {
+func (ec *executionContext) marshalNItem2inventoryGqlᚋgraphᚋmodelsᚐItem(ctx context.Context, sel ast.SelectionSet, v models.Item) graphql.Marshaler {
 	return ec._Item(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelᚐItem(ctx context.Context, sel ast.SelectionSet, v *model.Item) graphql.Marshaler {
+func (ec *executionContext) marshalNItem2ᚖinventoryGqlᚋgraphᚋmodelsᚐItem(ctx context.Context, sel ast.SelectionSet, v *models.Item) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -3593,6 +3672,29 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return ec.marshalOBoolean2bool(ctx, sel, *v)
 }
 
+func (ec *executionContext) unmarshalOID2string(ctx context.Context, v interface{}) (string, error) {
+	return graphql.UnmarshalID(v)
+}
+
+func (ec *executionContext) marshalOID2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	return graphql.MarshalID(v)
+}
+
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalOID2string(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec.marshalOID2string(ctx, sel, *v)
+}
+
 func (ec *executionContext) unmarshalONewInventory2inventoryGqlᚋgraphᚋmodelᚐNewInventory(ctx context.Context, v interface{}) (model.NewInventory, error) {
 	return ec.unmarshalInputNewInventory(ctx, v)
 }
@@ -3626,6 +3728,18 @@ func (ec *executionContext) unmarshalONewItem2ᚖinventoryGqlᚋgraphᚋmodelᚐ
 		return nil, nil
 	}
 	res, err := ec.unmarshalONewItem2inventoryGqlᚋgraphᚋmodelᚐNewItem(ctx, v)
+	return &res, err
+}
+
+func (ec *executionContext) unmarshalONewUser2inventoryGqlᚋgraphᚋmodelᚐNewUser(ctx context.Context, v interface{}) (model.NewUser, error) {
+	return ec.unmarshalInputNewUser(ctx, v)
+}
+
+func (ec *executionContext) unmarshalONewUser2ᚖinventoryGqlᚋgraphᚋmodelᚐNewUser(ctx context.Context, v interface{}) (*model.NewUser, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalONewUser2inventoryGqlᚋgraphᚋmodelᚐNewUser(ctx, v)
 	return &res, err
 }
 

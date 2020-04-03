@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/99designs/gqlgen/graphql/handler/apollotracing"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"inventoryGql/graph/generated"
@@ -22,7 +23,7 @@ func main() {
 		return
 	}
 	defer db.Close()
-	db.AutoMigrate(models.Inventory{}, models.Item{}, models.InventoryItem{})
+	db.AutoMigrate(models.Inventory{}, models.Item{}, models.InventoryItem{}, models.User{})
 	db.LogMode(true)
 
 	port := os.Getenv("PORT")
@@ -35,6 +36,8 @@ func main() {
 			Db: db,
 		},
 	}))
+
+	srv.Use(apollotracing.Tracer{})
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)
